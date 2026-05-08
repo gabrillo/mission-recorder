@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 import typer
 import yaml
+import uuid
 
 app = typer.Typer()
 
@@ -31,8 +32,10 @@ def new():
     (mission_path / "media").mkdir(exist_ok=True)
 
     # Dati YAML
+    mission_uuid = str(uuid.uuid4())
     mission_data = {
         "id": mission_id,
+        "uuid": mission_uuid,
         "title": title,
         "type": mission_type,
         "created_at": datetime.now().isoformat(),

@@ -1,10 +1,13 @@
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import typer
 import yaml
 import uuid
+from rich.console import Console
+from rich.table import Table
 
 app = typer.Typer()
+console = Console()
 
 MISSIONS_DIR = Path("missions")
 
@@ -20,7 +23,7 @@ def new():
     tags = input("Tag separati da virgola: ")
 
     # Timestamp UTC
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # Nome cartella
     date_str = now.strftime("%Y-%m-%d")
@@ -56,19 +59,70 @@ def new():
     print(f"\nMissione creata: {mission_id}")
 
 
-@app.command()
-def list():
+@app.command(name="list")
+def list_missions():
     """
     Elenca le missioni
     """
 
     if not MISSIONS_DIR.exists():
-        print("Nessuna missione trovata")
+        console.print("[red]Nessuna missione trovata[/red]")
         return
+
+    table = Table(title="Missioni")
+
+    table.add_column("Mission ID", style="cyan")
 
     for mission in sorted(MISSIONS_DIR.iterdir()):
         if mission.is_dir():
-            print(mission.name)
+            table.add_row(mission.name)
+
+    console.print(table)
+
+
+# New show command
+@app.command()
+def show(mission_id: str):
+    """
+    Mostra i dettagli di una missione
+    """
+
+    mission_path = MISSIONS_DIR / mission_id
+
+    if not mission_path.exists():
+        console.print(f"[red]Missione non trovata:[/red] {mission_id}")
+        raise typer.Exit(code=1)
+
+    yaml_path = mission_path / "mission.yaml"
+
+    if not yaml_path.exists():
+        console.print("[red]mission.yaml mancante[/red]")
+        raise typer.Exit(code=1)
+
+    with open(yaml_path, "r") as f:
+        mission_data = yaml.safe_load(f)
+
+    table = Table(title=f"Missione: {mission_id}")
+
+    table.add_column("Campo", style="green")
+    table.add_column("Valore", style="white")
+
+    for key, value in mission_data.items():
+        if isinstance(value, list):
+            value = ", ".join(value)
+
+        table.add_row(str(key), str(value))
+
+    console.print(table)
+
+    console.print(f"\n[cyan]Path:[/cyan] {mission_path}")
+
+    files = [p.name for p in mission_path.iterdir()]
+
+    console.print("\n[yellow]File presenti:[/yellow]")
+
+    for file_name in sorted(files):
+        console.print(f" - {file_name}")
 
 
 if __name__ == "__main__":

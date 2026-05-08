@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 import typer
 import yaml
 import uuid
@@ -19,8 +19,11 @@ def new():
     mission_type = input("Tipo missione: ")
     tags = input("Tag separati da virgola: ")
 
+    # Timestamp UTC
+    now = datetime.now(UTC)
+
     # Nome cartella
-    date_str = datetime.now().strftime("%Y-%m-%d")
+    date_str = now.strftime("%Y-%m-%d")
     slug = title.lower().replace(" ", "-")
 
     mission_id = f"{date_str}-{mission_type}-{slug}"
@@ -38,7 +41,7 @@ def new():
         "uuid": mission_uuid,
         "title": title,
         "type": mission_type,
-        "created_at": datetime.now().isoformat(),
+        "created_at": now.isoformat(),
         "tags": [tag.strip() for tag in tags.split(",") if tag.strip()]
     }
 

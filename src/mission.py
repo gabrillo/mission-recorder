@@ -126,6 +126,7 @@ def list_missions():
 
     table = Table(title="Missioni")
 
+    table.add_column("ID", style="cyan")
     table.add_column("Data")
     table.add_column("Titolo")
     table.add_column("Tipo")
@@ -142,6 +143,7 @@ def list_missions():
             mission = yaml.safe_load(f)
 
         table.add_row(
+            mission.get("id", ""),
             mission.get("date", ""),
             mission.get("title", ""),
             mission.get("type", ""),

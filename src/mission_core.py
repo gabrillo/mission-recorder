@@ -57,6 +57,16 @@ def load_mission(mission_file: Path) -> dict:
 def get_mission_path(mission_id: str) -> Path:
     return MISSIONS_DIR / mission_id / "mission.yaml"
 
+def generate_unique_mission_id(base_id: str) -> str:
+    mission_id = base_id
+    counter = 2
+
+    while (MISSIONS_DIR / mission_id).exists():
+        mission_id = f"{base_id}-{counter}"
+        counter += 1
+
+    return mission_id
+
 
 def save_mission(mission_data: dict):
     mission_id = mission_data.get("id")
@@ -110,7 +120,8 @@ def create_mission_data(
 
     slug = slugify(title)
 
-    mission_id = f"{now.strftime('%Y-%m-%d')}-{slug}"
+    base_id = f"{now.strftime('%Y-%m-%d')}-{slug}"
+    mission_id = generate_unique_mission_id(base_id)
 
     return {
         "id": mission_id,

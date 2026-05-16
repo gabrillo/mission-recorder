@@ -55,16 +55,17 @@ def load_mission(mission_file: Path) -> dict:
 
 # Persistence and lookup helpers
 def get_mission_path(mission_id: str) -> Path:
-    return MISSIONS_DIR / f"{mission_id}.yaml"
+    return MISSIONS_DIR / mission_id / "mission.yaml"
 
 
 def save_mission(mission_data: dict):
-    MISSIONS_DIR.mkdir(exist_ok=True)
-
     mission_id = mission_data.get("id")
 
     if not mission_id:
         raise ValueError("Mission is missing id")
+
+    mission_dir = MISSIONS_DIR / mission_id
+    mission_dir.mkdir(parents=True, exist_ok=True)
 
     mission_path = get_mission_path(mission_id)
 

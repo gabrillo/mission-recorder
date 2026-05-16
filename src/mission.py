@@ -11,12 +11,44 @@ app = typer.Typer()
 console = Console()
 
 
+
 MISSIONS_DIR = Path("missions")
+
+DEFAULT_MISSION = {
+    "id": "",
+    "uuid": "",
+    "title": "Untitled",
+    "type": "generic",
+    "status": "unknown",
+    "created_at": "",
+    "date": "",
+    "location": "",
+    "tags": [],
+    "gear": [],
+    "notes": "",
+}
+
+
+def load_mission(mission_file: Path) -> dict:
+    with open(mission_file, "r", encoding="utf-8") as f:
+        raw_data = yaml.safe_load(f) or {}
+
+    mission = DEFAULT_MISSION.copy()
+    mission.update(raw_data)
+
+    if not isinstance(mission.get("tags"), list):
+        mission["tags"] = []
+
+    if not isinstance(mission.get("gear"), list):
+        mission["gear"] = []
+
+    return mission
 
 
 def slugify(text: str) -> str:
     return (
-        text.lower()
+        text.strip()
+        .lower()
         .replace(" ", "-")
         .replace("/", "-")
     )
@@ -58,6 +90,10 @@ def new():
     """
 
     title = typer.prompt("Titolo")
+
+    if not title.strip():
+        console.print("[red]Il titolo non può essere vuoto[/red]")
+        raise typer.Exit(code=1)
 
     mission_type = typer.prompt(
         "Tipo",
@@ -139,15 +175,20 @@ def list_missions():
         if not mission_file.exists():
             continue
 
-        with open(mission_file, "r", encoding="utf-8") as f:
-            mission = yaml.safe_load(f)
+        try:
+            mission = load_mission(mission_file)
+        except Exception as e:
+            console.print(
+                f"[red]Errore caricando {mission_file.name}:[/red] {e}"
+            )
+            continue
 
         table.add_row(
-            mission.get("id", ""),
-            mission.get("date", ""),
-            mission.get("title", ""),
-            mission.get("type", ""),
-            mission.get("status", ""),
+            str(mission.get("id") or "-"),
+            str(mission.get("date") or "-"),
+            str(mission.get("title") or "Untitled"),
+            str(mission.get("type") or "generic"),
+            str(mission.get("status") or "unknown"),
         )
 
     console.print(table)
@@ -172,8 +213,11 @@ def show(mission_id: str):
         console.print("[red]mission.yaml mancante[/red]")
         raise typer.Exit(code=1)
 
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        mission_data = yaml.safe_load(f)
+    try:
+        mission_data = load_mission(yaml_path)
+    except Exception as e:
+        console.print(f"[red]Errore caricando missione:[/red] {e}")
+        raise typer.Exit(code=1)
 
     table = Table(title=f"Missione: {mission_id}")
 
@@ -182,7 +226,10 @@ def show(mission_id: str):
 
     for key, value in mission_data.items():
         if isinstance(value, list):
-            value = ", ".join(value)
+            value = ", ".join(str(v) for v in value)
+
+        if value in [None, ""]:
+            value = "-"
 
         table.add_row(str(key), str(value))
 

@@ -6,14 +6,14 @@ from rich.table import Table
 
 from mission_core import (
     create_mission_data,
+    find_mission,
     load_mission,
+    save_mission,
+    update_mission,
 )
 
 app = typer.Typer()
 console = Console()
-
-
-MISSIONS_DIR = Path("missions")
 
 
 @app.command()
@@ -62,18 +62,12 @@ def new():
         tags=tags,
     )
 
-    mission_path = MISSIONS_DIR / mission_data["id"]
+    mission_path = Path("missions") / mission_data["id"]
 
     mission_path.mkdir(parents=True, exist_ok=True)
     (mission_path / "media").mkdir(exist_ok=True)
 
-    with open(mission_path / "mission.yaml", "w", encoding="utf-8") as f:
-        yaml.dump(
-            mission_data,
-            f,
-            sort_keys=False,
-            allow_unicode=True,
-        )
+    save_mission(mission_data)
 
     with open(mission_path / "notes.md", "w", encoding="utf-8") as f:
         f.write(f"# {title}\n")
@@ -89,7 +83,9 @@ def list_missions():
     Elenca le missioni
     """
 
-    if not MISSIONS_DIR.exists():
+    missions_dir = Path("missions")
+
+    if not missions_dir.exists():
         console.print("[red]Nessuna missione trovata[/red]")
         return
 
@@ -101,7 +97,7 @@ def list_missions():
     table.add_column("Tipo")
     table.add_column("Status")
 
-    for mission_dir in sorted(MISSIONS_DIR.iterdir()):
+    for mission_dir in sorted(missions_dir.iterdir()):
 
         mission_file = mission_dir / "mission.yaml"
 
@@ -134,20 +130,13 @@ def show(mission_id: str):
     Mostra i dettagli di una missione
     """
 
-    mission_path = MISSIONS_DIR / mission_id
-
-    if not mission_path.exists():
-        console.print(f"[red]Missione non trovata:[/red] {mission_id}")
-        raise typer.Exit(code=1)
-
-    yaml_path = mission_path / "mission.yaml"
-
-    if not yaml_path.exists():
-        console.print("[red]mission.yaml mancante[/red]")
-        raise typer.Exit(code=1)
+    mission_path = Path("missions") / mission_id
 
     try:
-        mission_data = load_mission(yaml_path)
+        mission_data = find_mission(mission_id)
+    except FileNotFoundError:
+        console.print(f"[red]Missione non trovata:[/red] {mission_id}")
+        raise typer.Exit(code=1)
     except Exception as e:
         console.print(f"[red]Errore caricando missione:[/red] {e}")
         raise typer.Exit(code=1)
@@ -176,6 +165,51 @@ def show(mission_id: str):
 
     for file_name in files:
         console.print(f" - {file_name}")
+
+
+@app.command()
+def edit(
+    mission_id: str,
+    title: str = typer.Option(None),
+    status: str = typer.Option(None),
+    mission_type: str = typer.Option(None, "--type"),
+    location: str = typer.Option(None),
+    notes: str = typer.Option(None),
+):
+    """
+    Modifica una missione esistente
+    """
+
+    updates = {
+        "title": title,
+        "status": status,
+        "type": mission_type,
+        "location": location,
+        "notes": notes,
+    }
+
+    updates = {
+        key: value
+        for key, value in updates.items()
+        if value is not None
+    }
+
+    if not updates:
+        console.print("[yellow]Nessun campo da aggiornare[/yellow]")
+        raise typer.Exit(code=1)
+
+    try:
+        mission = update_mission(mission_id, updates)
+    except FileNotFoundError:
+        console.print(f"[red]Missione non trovata:[/red] {mission_id}")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"[red]Errore aggiornando missione:[/red] {e}")
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"[green]Missione aggiornata:[/green] {mission['id']}"
+    )
 
 
 if __name__ == "__main__":

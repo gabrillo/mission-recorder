@@ -1,8 +1,12 @@
 import uuid
+import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+
+MISSIONS_DIR = Path("missions")
 
 DEFAULT_MISSION = {
     "id": "",
@@ -19,13 +23,18 @@ DEFAULT_MISSION = {
 }
 
 
+
 def slugify(text: str) -> str:
-    return (
-        text.strip()
-        .lower()
-        .replace(" ", "-")
-        .replace("/", "-")
-    )
+    text = text.strip().lower()
+
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+
+    text = re.sub(r"-+", "-", text)
+
+    return text.strip("-")
 
 
 def load_mission(mission_file: Path) -> dict:
@@ -40,6 +49,51 @@ def load_mission(mission_file: Path) -> dict:
 
     if not isinstance(mission.get("gear"), list):
         mission["gear"] = []
+
+    return mission
+
+
+# Persistence and lookup helpers
+def get_mission_path(mission_id: str) -> Path:
+    return MISSIONS_DIR / f"{mission_id}.yaml"
+
+
+def save_mission(mission_data: dict):
+    MISSIONS_DIR.mkdir(exist_ok=True)
+
+    mission_id = mission_data.get("id")
+
+    if not mission_id:
+        raise ValueError("Mission is missing id")
+
+    mission_path = get_mission_path(mission_id)
+
+    with open(mission_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(
+            mission_data,
+            f,
+            sort_keys=False,
+            allow_unicode=True,
+        )
+
+
+def find_mission(mission_id: str) -> dict:
+    mission_path = get_mission_path(mission_id)
+
+    if not mission_path.exists():
+        raise FileNotFoundError(f"Mission not found: {mission_id}")
+
+    return load_mission(mission_path)
+
+
+def update_mission(mission_id: str, updates: dict) -> dict:
+    mission = find_mission(mission_id)
+
+    for key, value in updates.items():
+        if value is not None:
+            mission[key] = value
+
+    save_mission(mission)
 
     return mission
 

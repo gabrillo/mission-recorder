@@ -24,19 +24,7 @@ def build_config(missions_dir: Optional[Path]) -> MissionConfig:
     return MissionConfig.from_env()
 
 
-@app.command()
-def new(
-    missions_dir: Optional[Path] = typer.Option(
-        None,
-        "--missions-dir",
-        envvar="MISSION_RECORDER_DIR",
-        help="Directory dove salvare le missioni.",
-    ),
-):
-    """
-    Crea una nuova missione
-    """
-
+def create_mission(missions_dir: Optional[Path]) -> None:
     title = typer.prompt("Titolo")
 
     if not title.strip():
@@ -93,6 +81,36 @@ def new(
     console.print(
         f"[green]Missione creata:[/green] {mission_data['id']}"
     )
+
+
+@app.command(name="create")
+def create(
+    missions_dir: Optional[Path] = typer.Option(
+        None,
+        "--missions-dir",
+        envvar="MISSION_RECORDER_DIR",
+        help="Directory dove salvare le missioni.",
+    ),
+):
+    """
+    Crea una nuova missione
+    """
+    create_mission(missions_dir)
+
+
+@app.command(name="new", hidden=True)
+def new(
+    missions_dir: Optional[Path] = typer.Option(
+        None,
+        "--missions-dir",
+        envvar="MISSION_RECORDER_DIR",
+        help="Directory dove salvare le missioni.",
+    ),
+):
+    """
+    Alias legacy per `create`.
+    """
+    create_mission(missions_dir)
 
 
 @app.command(name="list")

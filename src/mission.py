@@ -8,8 +8,8 @@ from mission_core import (
     MissionConfig,
     create_mission_data,
     find_mission,
-    load_mission,
     save_mission,
+    search_missions,
     update_mission,
 )
 
@@ -83,6 +83,31 @@ def create_mission(missions_dir: Optional[Path]) -> None:
     )
 
 
+def render_missions_table(missions: list[dict], title: str = "Missioni") -> None:
+    table = Table(title=title)
+
+    table.add_column("ID", style="cyan")
+    table.add_column("Data")
+    table.add_column("Titolo")
+    table.add_column("Tipo")
+    table.add_column("Status")
+    table.add_column("Tags")
+
+    for mission in missions:
+        tags = mission.get("tags") or []
+
+        table.add_row(
+            str(mission.get("id") or "-"),
+            str(mission.get("date") or "-"),
+            str(mission.get("title") or "Untitled"),
+            str(mission.get("type") or "generic"),
+            str(mission.get("status") or "unknown"),
+            ", ".join(str(tag) for tag in tags) or "-",
+        )
+
+    console.print(table)
+
+
 @app.command(name="create")
 def create(
     missions_dir: Optional[Path] = typer.Option(
@@ -115,6 +140,37 @@ def new(
 
 @app.command(name="list")
 def list_missions(
+    query: Optional[str] = typer.Option(
+        None,
+        "--query",
+        "-q",
+        help="Testo da cercare in ID, titolo, tipo, status, location, tags, gear e notes.",
+    ),
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        help="Filtra per status esatto.",
+    ),
+    mission_type: Optional[str] = typer.Option(
+        None,
+        "--type",
+        help="Filtra per tipo esatto.",
+    ),
+    tag: Optional[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filtra per tag esatto.",
+    ),
+    location: Optional[str] = typer.Option(
+        None,
+        "--location",
+        help="Filtra per location parziale.",
+    ),
+    date: Optional[str] = typer.Option(
+        None,
+        "--date",
+        help="Filtra per data YYYY-MM-DD.",
+    ),
     missions_dir: Optional[Path] = typer.Option(
         None,
         "--missions-dir",
@@ -127,44 +183,86 @@ def list_missions(
     """
 
     config = build_config(missions_dir)
-    missions_dir = config.missions_dir
+    missions = search_missions(
+        config=config,
+        query=query,
+        status=status,
+        mission_type=mission_type,
+        tag=tag,
+        location=location,
+        date=date,
+    )
 
-    if not missions_dir.exists():
+    if not config.missions_dir.exists():
         console.print("[red]Nessuna missione trovata[/red]")
         return
 
-    table = Table(title="Missioni")
+    if not missions:
+        console.print("[yellow]Nessuna missione corrisponde ai filtri[/yellow]")
+        return
 
-    table.add_column("ID", style="cyan")
-    table.add_column("Data")
-    table.add_column("Titolo")
-    table.add_column("Tipo")
-    table.add_column("Status")
+    render_missions_table(missions)
 
-    for mission_dir in sorted(missions_dir.iterdir()):
 
-        mission_file = mission_dir / "mission.yaml"
+@app.command()
+def search(
+    query: str,
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        help="Filtra per status esatto.",
+    ),
+    mission_type: Optional[str] = typer.Option(
+        None,
+        "--type",
+        help="Filtra per tipo esatto.",
+    ),
+    tag: Optional[str] = typer.Option(
+        None,
+        "--tag",
+        help="Filtra per tag esatto.",
+    ),
+    location: Optional[str] = typer.Option(
+        None,
+        "--location",
+        help="Filtra per location parziale.",
+    ),
+    date: Optional[str] = typer.Option(
+        None,
+        "--date",
+        help="Filtra per data YYYY-MM-DD.",
+    ),
+    missions_dir: Optional[Path] = typer.Option(
+        None,
+        "--missions-dir",
+        envvar="MISSION_RECORDER_DIR",
+        help="Directory da cui leggere le missioni.",
+    ),
+):
+    """
+    Cerca missioni per testo e filtri
+    """
 
-        if not mission_file.exists():
-            continue
+    config = build_config(missions_dir)
+    missions = search_missions(
+        config=config,
+        query=query,
+        status=status,
+        mission_type=mission_type,
+        tag=tag,
+        location=location,
+        date=date,
+    )
 
-        try:
-            mission = load_mission(mission_file)
-        except Exception as e:
-            console.print(
-                f"[red]Errore caricando {mission_file.name}:[/red] {e}"
-            )
-            continue
+    if not config.missions_dir.exists():
+        console.print("[red]Nessuna missione trovata[/red]")
+        return
 
-        table.add_row(
-            str(mission.get("id") or "-"),
-            str(mission.get("date") or "-"),
-            str(mission.get("title") or "Untitled"),
-            str(mission.get("type") or "generic"),
-            str(mission.get("status") or "unknown"),
-        )
+    if not missions:
+        console.print("[yellow]Nessuna missione corrisponde alla ricerca[/yellow]")
+        return
 
-    console.print(table)
+    render_missions_table(missions, title=f"Ricerca: {query}")
 
 
 # New show command

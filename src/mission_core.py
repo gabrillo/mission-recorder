@@ -82,6 +82,104 @@ def load_mission(mission_file: Path) -> dict:
     return mission
 
 
+def list_missions(config: Optional[MissionConfig] = None) -> list[dict]:
+    config = get_config(config)
+
+    if not config.missions_dir.exists():
+        return []
+
+    missions = []
+
+    for mission_dir in sorted(config.missions_dir.iterdir()):
+        mission_file = mission_dir / "mission.yaml"
+
+        if not mission_file.exists():
+            continue
+
+        try:
+            missions.append(load_mission(mission_file))
+        except Exception:
+            continue
+
+    return missions
+
+
+def _matches_text(value, query: str) -> bool:
+    if isinstance(value, list):
+        return any(_matches_text(item, query) for item in value)
+
+    return query in str(value or "").lower()
+
+
+def mission_matches_filters(
+    mission: dict,
+    query: Optional[str] = None,
+    status: Optional[str] = None,
+    mission_type: Optional[str] = None,
+    tag: Optional[str] = None,
+    location: Optional[str] = None,
+    date: Optional[str] = None,
+) -> bool:
+    if query:
+        normalized_query = query.lower()
+        searchable_fields = [
+            mission.get("id"),
+            mission.get("title"),
+            mission.get("type"),
+            mission.get("status"),
+            mission.get("location"),
+            mission.get("tags"),
+            mission.get("gear"),
+            mission.get("notes"),
+        ]
+
+        if not any(_matches_text(value, normalized_query) for value in searchable_fields):
+            return False
+
+    if status and str(mission.get("status") or "").lower() != status.lower():
+        return False
+
+    if mission_type and str(mission.get("type") or "").lower() != mission_type.lower():
+        return False
+
+    if tag:
+        tags = [str(item).lower() for item in mission.get("tags", [])]
+        if tag.lower() not in tags:
+            return False
+
+    if location and location.lower() not in str(mission.get("location") or "").lower():
+        return False
+
+    if date and str(mission.get("date") or "") != date:
+        return False
+
+    return True
+
+
+def search_missions(
+    config: Optional[MissionConfig] = None,
+    query: Optional[str] = None,
+    status: Optional[str] = None,
+    mission_type: Optional[str] = None,
+    tag: Optional[str] = None,
+    location: Optional[str] = None,
+    date: Optional[str] = None,
+) -> list[dict]:
+    return [
+        mission
+        for mission in list_missions(config)
+        if mission_matches_filters(
+            mission,
+            query=query,
+            status=status,
+            mission_type=mission_type,
+            tag=tag,
+            location=location,
+            date=date,
+        )
+    ]
+
+
 # Persistence and lookup helpers
 def get_mission_path(
     mission_id: str,

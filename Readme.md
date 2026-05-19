@@ -48,6 +48,18 @@ List missions:
 .venv/bin/mission-recorder list
 ```
 
+Filter missions:
+
+```bash
+.venv/bin/mission-recorder list --status planned --tag radio
+```
+
+Search missions:
+
+```bash
+.venv/bin/mission-recorder search repeater
+```
+
 Use a custom missions directory with either an option:
 
 ```bash

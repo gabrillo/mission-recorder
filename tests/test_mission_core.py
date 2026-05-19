@@ -73,6 +73,91 @@ def test_save_find_and_update_mission_roundtrip(config):
     assert mission_core.find_mission(mission["id"], config)["status"] == "done"
 
 
+def test_list_missions_skips_non_mission_directories(config):
+    mission = {
+        "id": "2026-05-19-alpha",
+        "uuid": "uuid-1",
+        "title": "Alpha",
+        "type": "field",
+        "status": "planned",
+        "created_at": "2026-05-19T10:00:00+00:00",
+        "date": "2026-05-19",
+        "location": "Base",
+        "tags": ["radio"],
+        "gear": [],
+        "notes": "",
+    }
+
+    mission_core.save_mission(mission, config)
+    (config.missions_dir / "draft").mkdir()
+
+    assert mission_core.list_missions(config) == [mission]
+
+
+def test_list_missions_skips_unreadable_mission_files(config):
+    valid = {
+        "id": "2026-05-19-valid",
+        "uuid": "uuid-1",
+        "title": "Valid",
+        "type": "field",
+        "status": "planned",
+        "created_at": "2026-05-19T10:00:00+00:00",
+        "date": "2026-05-19",
+        "location": "Base",
+        "tags": ["radio"],
+        "gear": [],
+        "notes": "",
+    }
+
+    mission_core.save_mission(valid, config)
+    broken_dir = config.missions_dir / "broken"
+    broken_dir.mkdir()
+    (broken_dir / "mission.yaml").write_text("title: [broken", encoding="utf-8")
+
+    assert mission_core.list_missions(config) == [valid]
+
+
+def test_search_missions_matches_text_and_filters(config):
+    alpha = {
+        "id": "2026-05-19-alpha-flight",
+        "uuid": "uuid-1",
+        "title": "Alpha Flight",
+        "type": "field",
+        "status": "planned",
+        "created_at": "2026-05-19T10:00:00+00:00",
+        "date": "2026-05-19",
+        "location": "Base Nord",
+        "tags": ["radio", "night"],
+        "gear": ["antenna"],
+        "notes": "Check repeater signal",
+    }
+    beta = {
+        "id": "2026-05-20-beta-survey",
+        "uuid": "uuid-2",
+        "title": "Beta Survey",
+        "type": "survey",
+        "status": "done",
+        "created_at": "2026-05-20T10:00:00+00:00",
+        "date": "2026-05-20",
+        "location": "Valle",
+        "tags": ["photo"],
+        "gear": ["camera"],
+        "notes": "",
+    }
+
+    mission_core.save_mission(alpha, config)
+    mission_core.save_mission(beta, config)
+
+    assert mission_core.search_missions(config, query="repeater") == [alpha]
+    assert mission_core.search_missions(config, query="CAMERA") == [beta]
+    assert mission_core.search_missions(config, status="done") == [beta]
+    assert mission_core.search_missions(config, mission_type="field") == [alpha]
+    assert mission_core.search_missions(config, tag="night") == [alpha]
+    assert mission_core.search_missions(config, location="nord") == [alpha]
+    assert mission_core.search_missions(config, date="2026-05-20") == [beta]
+    assert mission_core.search_missions(config, query="survey", status="planned") == []
+
+
 def test_load_mission_applies_defaults_and_normalizes_lists(tmp_path):
     mission_file = tmp_path / "mission.yaml"
     mission_file.write_text(

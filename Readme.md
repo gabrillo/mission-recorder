@@ -22,6 +22,28 @@ The architecture is intentionally simple:
 
 ---
 
+# Development Setup
+
+Install the project and development dependencies into the local virtual environment:
+
+```bash
+.venv/bin/python -m pip install '.[dev]'
+```
+
+Run the CLI:
+
+```bash
+.venv/bin/mission-recorder --help
+```
+
+Run tests:
+
+```bash
+.venv/bin/python -m pytest
+```
+
+---
+
 # Current Workflow
 
 ## Mission Creation Flow

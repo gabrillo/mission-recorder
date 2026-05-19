@@ -1,5 +1,4 @@
 import typer
-import yaml
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -212,5 +211,9 @@ def edit(
     )
 
 
-if __name__ == "__main__":
+def main():
     app()
+
+
+if __name__ == "__main__":
+    main()

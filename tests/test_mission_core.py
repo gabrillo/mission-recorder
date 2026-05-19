@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 import yaml
 
@@ -7,10 +5,9 @@ import mission_core
 
 
 @pytest.fixture()
-def missions_dir(tmp_path, monkeypatch):
+def config(tmp_path):
     path = tmp_path / "missions"
-    monkeypatch.setattr(mission_core, "MISSIONS_DIR", path)
-    return path
+    return mission_core.MissionConfig(path)
 
 
 def test_slugify_removes_shell_sensitive_characters():
@@ -24,15 +21,26 @@ def test_slugify_uses_safe_fallback_for_empty_output():
     assert mission_core.slugify("🚁") == "mission"
 
 
-def test_generate_unique_mission_id_adds_numeric_suffix(missions_dir):
+def test_config_can_be_loaded_from_environment(tmp_path, monkeypatch):
+    missions_dir = tmp_path / "custom-missions"
+    monkeypatch.setenv(mission_core.MISSIONS_DIR_ENV, str(missions_dir))
+
+    config = mission_core.MissionConfig.from_env()
+
+    assert config.missions_dir == missions_dir
+    assert config.mission_file("mission-1") == missions_dir / "mission-1" / "mission.yaml"
+
+
+def test_generate_unique_mission_id_adds_numeric_suffix(config):
     base_id = "2026-05-19-test"
+    missions_dir = config.missions_dir
     (missions_dir / base_id).mkdir(parents=True)
     (missions_dir / f"{base_id}-2").mkdir()
 
-    assert mission_core.generate_unique_mission_id(base_id) == f"{base_id}-3"
+    assert mission_core.generate_unique_mission_id(base_id, config) == f"{base_id}-3"
 
 
-def test_save_find_and_update_mission_roundtrip(missions_dir):
+def test_save_find_and_update_mission_roundtrip(config):
     mission = {
         "id": "2026-05-19-test",
         "uuid": "uuid-1",
@@ -47,21 +55,22 @@ def test_save_find_and_update_mission_roundtrip(missions_dir):
         "notes": "",
     }
 
-    mission_core.save_mission(mission)
+    mission_core.save_mission(mission, config)
 
-    mission_path = missions_dir / mission["id"] / "mission.yaml"
+    mission_path = config.mission_file(mission["id"])
     assert mission_path.exists()
-    assert mission_core.find_mission(mission["id"]) == mission
+    assert mission_core.find_mission(mission["id"], config) == mission
 
     updated = mission_core.update_mission(
         mission["id"],
         {"status": "done", "location": None, "notes": "Completed"},
+        config,
     )
 
     assert updated["status"] == "done"
     assert updated["location"] == "Base"
     assert updated["notes"] == "Completed"
-    assert mission_core.find_mission(mission["id"])["status"] == "done"
+    assert mission_core.find_mission(mission["id"], config)["status"] == "done"
 
 
 def test_load_mission_applies_defaults_and_normalizes_lists(tmp_path):
@@ -88,8 +97,9 @@ def test_load_mission_applies_defaults_and_normalizes_lists(tmp_path):
     assert mission["gear"] == []
 
 
-def test_create_mission_data_generates_safe_unique_id(missions_dir):
+def test_create_mission_data_generates_safe_unique_id(config):
     existing_id = "2026-05-19-lescursione-radio"
+    missions_dir = config.missions_dir
     (missions_dir / existing_id).mkdir(parents=True)
 
     mission = mission_core.create_mission_data(
@@ -98,6 +108,7 @@ def test_create_mission_data_generates_safe_unique_id(missions_dir):
         status="planned",
         location="Monte",
         tags=["radio", "test"],
+        config=config,
     )
 
     assert mission["id"].endswith("lescursione-radio") or mission["id"].endswith(

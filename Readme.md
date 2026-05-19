@@ -36,6 +36,18 @@ Run the CLI:
 .venv/bin/mission-recorder --help
 ```
 
+Use a custom missions directory with either an option:
+
+```bash
+.venv/bin/mission-recorder list --missions-dir /path/to/missions
+```
+
+Or an environment variable:
+
+```bash
+MISSION_RECORDER_DIR=/path/to/missions .venv/bin/mission-recorder list
+```
+
 Run tests:
 
 ```bash
